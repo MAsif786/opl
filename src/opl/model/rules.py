@@ -72,7 +72,7 @@ _M_DELAY = 3
 _M_OTHER_WH_STOCK = 4
 _M_TRANSPORT_TIME = 5
 
-def multi_warehouse_rule(s_t: StateVector, action: Action) -> StateVector:
+def multi_warehouse_rule(s_t: StateVector, action: Action, params: dict | None = None) -> StateVector:
     """Multi-entity physics rule for warehouse transfers.
 
     State dimensions: [local_stock, demand, incoming, delay, other_wh_stock, transport_time]
