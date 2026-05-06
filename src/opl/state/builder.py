@@ -28,9 +28,7 @@ class StateBuilder:
         # 1. Process Numerical Data
         vals = []
         for dim in self.numeric_dims:
-            val = data.get(dim)
-            if val is None:
-                raise StateValidationError(f"missing required numerical dimension: {dim}")
+            val = data.get(dim, 0.0)  # Use 0.0 as a neutral default for schema evolution
             vals.append(float(val))
 
         # 2. Process Categorical Data

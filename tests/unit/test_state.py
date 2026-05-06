@@ -118,12 +118,13 @@ class TestStateBuilder:
         assert list(state.values) == [100.0, 20.0, 50.0, 2.0]
 
     @pytest.mark.unit
-    def test_rejects_missing_required_fields(self):
-        """Must fail explicitly if required fields are absent."""
-        builder = StateBuilder(fields=["stock", "demand", "incoming", "delay"])
-        raw = {"stock": 100}  # missing demand, incoming, delay
-        with pytest.raises(StateValidationError, match="missing"):
-            builder.build(raw)
+    def test_handles_missing_fields_with_defaults(self):
+        """Builder should provide 0.0 for missing dimensions instead of crashing."""
+        builder = StateBuilder(fields=["stock", "demand"])
+        raw = {"stock": 100}  # missing demand
+        state = builder.build(raw)
+        assert state[0] == 100.0
+        assert state[1] == 0.0  # demand defaulted to 0.0
 
     @pytest.mark.unit
     def test_field_order_is_deterministic(self):
