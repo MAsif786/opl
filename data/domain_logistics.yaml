@@ -10,8 +10,7 @@ dimensions:
 
 physics_rule: logistics_basic
 
-rule_params:
-  lead_time: 4.0
+rule_params: {}
 
 
 actions:

@@ -1,46 +1,43 @@
-"""
-Rules — Domain physics encoded as pure functions.
-
-A rule is a function: (StateVector, Action) → StateVector
-It encodes deterministic domain knowledge ("stock goes down by demand").
-
-The ML correction layer will learn the systematic errors in these rules,
-so they don't need to be perfect — just structurally correct.
-
-Design decisions:
-- Pure functions, no side effects, no state
-- Named dimensions accessed by index for speed (names for debug)
-- Default lead time is a constant — adapter can override later
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-
 from opl.model.action import Action
 from opl.state.vector import StateVector
 
 if TYPE_CHECKING:
     from opl.model.world_model import RuleFunction
 
-# State dimension indices for logistics
+# ─── Indices ──────────────────────────────────────────────────────────────────
+
+# Core dimensions (Standard)
 _STOCK = 0
 _DEMAND = 1
 _INCOMING = 2
 _DELAY = 3
 
-# Default lead time for reorders (days)
-DEFAULT_LEAD_TIME = 3
+# Extended dimensions (Multi-WH / Dynamic)
+_OTHER_WH_STOCK = 4
+_TRANSPORT_TIME = 5
 
+
+# ─── Rules ────────────────────────────────────────────────────────────────────
 
 def simple_stock_rule(s_t: StateVector, action: Action, params: dict | None = None) -> StateVector:
-    """Base physics rule for warehouse stock evolution.
-
-    Params:
-        lead_time: The delay in days for a reorder to arrive (default 3).
+    """
+    Base physics rule for warehouse stock evolution.
+    
+    Logic:
+    - Stock decreases by demand.
+    - If delay hits 0, incoming arrives.
+    - Reorder action sets delay based on transport_time (if present) or params.
     """
     params = params or {}
-    lead_time = params.get("lead_time", 3)
+    
+    # Dynamic lead time: Look in state first, then params, then default
+    if len(s_t) > _TRANSPORT_TIME:
+        lead_time = s_t[_TRANSPORT_TIME]
+    else:
+        lead_time = params.get("lead_time", 3.0)
 
     stock = s_t[_STOCK]
     demand = s_t[_DEMAND]
@@ -61,92 +58,52 @@ def simple_stock_rule(s_t: StateVector, action: Action, params: dict | None = No
         incoming = action.value
         delay = lead_time
 
-    # Demand persists
-    next_demand = demand
+    # Construct next state (preserve all dimensions)
+    next_values = list(s_t.values)
+    next_values[_STOCK] = stock
+    next_values[_INCOMING] = incoming
+    next_values[_DELAY] = delay
+    # Demand and others persist by default
 
-    values = [stock, next_demand, incoming, delay]
-    return StateVector(values, names=s_t.names)
-
-
-# State dimension indices for multi-warehouse
-_M_STOCK = 0
-_M_DEMAND = 1
-_M_INCOMING = 2
-_M_DELAY = 3
-_M_OTHER_WH_STOCK = 4
-_M_TRANSPORT_TIME = 5
+    return StateVector(next_values, names=s_t.names, metadata=s_t.metadata)
 
 
 def multi_warehouse_rule(s_t: StateVector, action: Action, params: dict | None = None) -> StateVector:
-    """Multi-entity physics rule for warehouse transfers.
-
-    State dimensions: [local_stock, demand, incoming, delay, other_wh_stock, transport_time]
-
-    Logic:
-        - local_stock decreases by demand
-        - if delay == 0: local_stock increases by incoming, incoming resets
-        - delay decrements by 1 (min 0)
-        - if transfer action:
-            take from other_wh_stock (capped at available)
-            set up incoming and delay
-
-    Args:
-        s_t: Current state vector.
-        action: Action to apply.
-
-    Returns:
-        Predicted next state vector.
     """
-    local_stock = s_t[_M_STOCK]
-    demand = s_t[_M_DEMAND]
-    incoming = s_t[_M_INCOMING]
-    delay = s_t[_M_DELAY]
-    other_wh_stock = s_t[_M_OTHER_WH_STOCK]
-    transport_time = s_t[_M_TRANSPORT_TIME]
+    Physics rule for warehouse transfers and reorders.
+    
+    Logic:
+    - Normal stock/demand/arrival logic.
+    - Transfer action moves stock from other_wh_stock to transit.
+    """
+    # Reuse base logic for the first 4 dims
+    next_state = simple_stock_rule(s_t, action, params)
+    
+    next_values = list(next_state.values)
+    other_wh_stock = s_t[_OTHER_WH_STOCK]
+    transport_time = s_t[_TRANSPORT_TIME]
 
-    # Arrival logic for local warehouse
-    if delay <= 0 and incoming > 0:
-        local_stock = local_stock - demand + incoming
-        incoming = 0.0
-        delay = 0.0
-    else:
-        local_stock = local_stock - demand
-        delay = max(0.0, delay - 1)
-
-    # Transfer logic: if action is transfer, move stock from B to transit
+    # Specific Transfer Logic
     if action.name == "transfer" and action.value > 0:
         actual_transfer = min(action.value, other_wh_stock)
         other_wh_stock -= actual_transfer
-        incoming = actual_transfer
-        delay = transport_time
+        next_values[_INCOMING] = actual_transfer
+        next_values[_DELAY] = transport_time
 
-    # Demand and transport time persist
-    next_demand = demand
-    next_transport_time = transport_time
+    next_values[_OTHER_WH_STOCK] = other_wh_stock
+    # transport_time persists
 
-    values = [local_stock, next_demand, incoming, delay, other_wh_stock, next_transport_time]
-    return StateVector(values, names=s_t.names)
+    return StateVector(next_values, names=s_t.names, metadata=s_t.metadata)
 
 
-# Rule Registry — Allows dynamic lookup from configuration
+# ─── Registry ─────────────────────────────────────────────────────────────────
+
 RULE_REGISTRY = {
     "logistics_basic": simple_stock_rule,
     "logistics_multi_warehouse": multi_warehouse_rule,
 }
 
-
 def get_rule(name: str) -> RuleFunction:
-    """Get a physics rule by name.
-
-    Args:
-        name: Name of the rule in the registry.
-
-    Returns:
-        The rule function.
-
-    Raises:
-        ValueError: If rule name is not found.
-    """
     if name not in RULE_REGISTRY:
-        raise ValueError(f"Rule '{name}' not found in registry. Available: {list(RULE_REGISTRY.keys())}")
+        raise ValueError(f"Rule '{name}' not found. Available: {list(RULE_REGISTRY.keys())}")
     return RULE_REGISTRY[name]
