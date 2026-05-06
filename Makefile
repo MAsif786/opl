@@ -21,8 +21,11 @@ lint-fix:
 	ruff format src/ tests/
 
 # CLI Shortcuts
-run-train:
-	opl train --entity SKU_WH_1
+run-cold-start:
+	opl train --mode cold-start --data data/sample_inventory.csv
+
+run-retrain:
+	opl train --mode retrain --entity SKU_WH_1
 
 run-predict:
 	opl predict --entity SKU_WH_1 --horizon 7
