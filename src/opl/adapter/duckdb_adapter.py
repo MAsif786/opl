@@ -1,18 +1,8 @@
-"""
-DuckDB Adapter — Persistent SQL storage for state observations and history.
-
-This adapter allows the engine to:
-1. Log real-world observations into a structured SQL database.
-2. Query historical data efficiently for ML retraining.
-3. Handle large-scale datasets without loading everything into Python memory.
-"""
-
 from __future__ import annotations
-
-from collections.abc import Sequence
 
 import duckdb
 import numpy as np
+from collections.abc import Sequence
 
 from opl.engine.cold_start import HistoricalDay
 from opl.model.action import Action
@@ -20,20 +10,14 @@ from opl.state.vector import StateVector
 
 
 class DuckDBAdapter:
-    """SQL-based data adapter using DuckDB.
-
-    Args:
-        db_path: Path to the DuckDB file (e.g., 'data/opl.db').
-    """
+    """SQL-based data adapter using DuckDB with Incremental Training support."""
 
     def __init__(self, db_path: str) -> None:
         self.conn = duckdb.connect(db_path)
         self._init_schema()
 
     def _init_schema(self) -> None:
-        """Create the necessary tables if they don't exist."""
-        # We store everything in a single wide table for simplicity in the MVP.
-        # entity_id allows tracking multiple SKUs/Warehouses in one DB.
+        """Create the necessary tables with an is_trained flag for incremental learning."""
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS observations (
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -42,26 +26,20 @@ class DuckDBAdapter:
                 state_values DOUBLE[],
                 action_name VARCHAR,
                 action_value DOUBLE,
-                next_state_values DOUBLE[]
+                next_state_values DOUBLE[],
+                is_trained BOOLEAN DEFAULT FALSE
             )
         """)
 
     def log_observation(self, entity_id: str, state: StateVector, action: Action, next_state: StateVector) -> None:
-        """Save a real-world transition to the database.
-
-        Args:
-            entity_id: Unique ID of the SKU or warehouse.
-            state: State before the action.
-            action: Action taken.
-            next_state: Resulting state observed in reality.
-        """
+        """Save a real-world transition. Defaults to is_trained=FALSE."""
         import json
 
         self.conn.execute(
             """
             INSERT INTO observations
-            (entity_id, dimension_names, state_values, action_name, action_value, next_state_values)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (entity_id, dimension_names, state_values, action_name, action_value, next_state_values, is_trained)
+            VALUES (?, ?, ?, ?, ?, ?, FALSE)
             """,
             [
                 entity_id,
@@ -73,23 +51,35 @@ class DuckDBAdapter:
             ],
         )
 
-    def load_history(self, entity_id: str) -> Sequence[HistoricalDay]:
-        """Load historical observations for a specific entity from SQL.
+    def load_history(self, entity_id: str, only_new: bool = True) -> Sequence[HistoricalDay]:
+        """Load history for a specific entity."""
+        where = "WHERE entity_id = ?"
+        if only_new:
+            where += " AND is_trained = FALSE"
+        return self._fetch_history(where, [entity_id])
 
-        Returns:
-            A sequence of HistoricalDay objects for the ColdStart engine.
-        """
+    def load_all_history(self, only_new: bool = True) -> Sequence[HistoricalDay]:
+        """Load historical observations from the entire database."""
+        where = "WHERE is_trained = FALSE" if only_new else ""
+        return self._fetch_history(where, [])
+
+    def mark_as_trained(self, entity_id: str | None = None) -> None:
+        """Mark processed records as trained so they aren't used again."""
+        if entity_id:
+            self.conn.execute("UPDATE observations SET is_trained = TRUE WHERE entity_id = ?", [entity_id])
+        else:
+            self.conn.execute("UPDATE observations SET is_trained = TRUE WHERE is_trained = FALSE")
+
+    def _fetch_history(self, where_clause: str, params: list) -> Sequence[HistoricalDay]:
         import json
 
-        res = self.conn.execute(
-            """
-            SELECT dimension_names, state_values, action_name, action_value
-            FROM observations
-            WHERE entity_id = ?
+        query = f"""
+            SELECT dimension_names, state_values, action_name, action_value 
+            FROM observations 
+            {where_clause}
             ORDER BY timestamp ASC
-            """,
-            [entity_id],
-        ).fetchall()
+        """
+        res = self.conn.execute(query, params).fetchall()
 
         history = []
         for row in res:
@@ -97,9 +87,7 @@ class DuckDBAdapter:
             state = StateVector(np.array(row[1]), names=names)
             action = Action(row[2], row[3])
             history.append(HistoricalDay(state=state, action=action))
-
         return history
 
     def close(self) -> None:
-        """Close the database connection."""
         self.conn.close()

@@ -27,6 +27,9 @@ run-cold-start:
 run-retrain:
 	opl train --mode retrain --entity SKU_WH_1
 
+run-global-retrain:
+	opl train --mode retrain --global
+
 run-predict:
 	opl predict --entity SKU_WH_1 --horizon 7
 

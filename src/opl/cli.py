@@ -25,13 +25,14 @@ def main():
     # Train Command (Dual Mode)
     train_parser = subparsers.add_parser("train", help="Train the hybrid correction model")
     train_parser.add_argument(
-        "--mode", 
-        choices=["cold-start", "retrain"], 
-        required=True, 
-        help="cold-start (from raw CSV) or retrain (from SQL audit log)"
+        "--mode",
+        choices=["cold-start", "retrain"],
+        required=True,
+        help="cold-start (from raw CSV) or retrain (from SQL audit log)",
     )
     train_parser.add_argument("--data", type=str, help="Path to raw CSV (required for cold-start)")
-    train_parser.add_argument("--entity", type=str, help="Entity ID (optional for retrain, defaults to all)")
+    train_parser.add_argument("--entity", type=str, help="Entity ID (for specific entity retraining)")
+    train_parser.add_argument("--global", dest="is_global", action="store_true", help="Train on all data in the DB")
 
     # Predict Command
     predict_parser = subparsers.add_parser("predict", help="Recommend the best action for an entity")
@@ -69,12 +70,17 @@ def main():
                 sys.exit(1)
             print(f"[*] Cold-starting from raw data: {args.data}...")
             history = LogisticsCsvAdapter.load_history(args.data)
-        
+
         elif args.mode == "retrain":
-            print(f"[*] Retraining from SQL audit trail ({args.db})...")
-            # If entity is None, the adapter should ideally support 'load_all', 
-            # but we'll use a sample SKU for this demonstration.
-            history = db.load_history(args.entity or "SKU_WH_1")
+            if args.is_global:
+                print(f"[*] Retraining GLOBAL model from all data in {args.db}...")
+                history = db.load_all_history()
+            elif args.entity:
+                print(f"[*] Retraining model for specific entity: {args.entity}...")
+                history = db.load_history(args.entity)
+            else:
+                print("[!] Error: Must specify --entity or --global for retrain mode.")
+                sys.exit(1)
 
         if len(history) < 10:
             print(f"[!] Not enough history to train (found {len(history)}). Need 10+ observations.")
@@ -88,6 +94,13 @@ def main():
 
         model.train_correction()
         model.save(args.model_path)
+        
+        # Mark records as trained so they aren't repeated
+        if args.is_global:
+            db.mark_as_trained()
+        elif args.entity:
+            db.mark_as_trained(args.entity)
+            
         print(f"[+] Model successfully trained and saved to {args.model_path}")
 
     elif args.command == "predict":
