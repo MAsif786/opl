@@ -21,6 +21,10 @@ class DomainConfig(BaseModel):
         ..., min_length=1, description="Ordered list of state dimension names (e.g., ['stock', 'demand'])"
     )
 
+    categorical_dimensions: list[str] = Field(
+        default_factory=list, description="List of dimensions that are categorical"
+    )
+
     physics_rule: str = Field("logistics_basic", description="Name of the physics rule to use from the Rule Registry")
 
     rule_params: dict[str, float] = Field(

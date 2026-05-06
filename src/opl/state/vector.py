@@ -1,127 +1,93 @@
-"""
-StateVector — Immutable numeric snapshot of an entity at a point in time.
-
-This is the atomic data type of the entire engine. Every component
-(world model, simulator, evaluator) operates on StateVectors.
-
-Design decisions:
-- Immutable: prevents accidental mutation of historical states
-- NumPy-backed: fast math for simulation rollouts
-- Named dimensions: enables explainability without sacrificing speed
-- Strict validation: NaN/empty/non-numeric rejected at creation time
-"""
-
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 import numpy as np
+from dataclasses import dataclass, field
+from typing import Any
 
 
 class StateValidationError(ValueError):
-    """Raised when state data fails validation."""
+    """Raised when a StateVector is initialized with invalid data."""
+    pass
 
 
+@dataclass(frozen=True)
 class StateVector:
-    """Immutable numeric state vector representing an entity at time t.
-
-    Args:
-        values: Numeric values for each state dimension.
-        names: Optional dimension labels (e.g., ["stock", "demand"]).
-
-    Raises:
-        StateValidationError: If values are empty, non-numeric, or contain NaN.
     """
+    A hybrid vector representing the state of an entity.
+    
+    Contains:
+    - values: Numerical array for ML and physics calculations.
+    - names: Names of the numerical dimensions.
+    - metadata: String-based categorical data for context.
+    """
+    values: np.ndarray
+    names: tuple[str, ...] = field(default_factory=tuple)
+    metadata: dict[str, str] = field(default_factory=dict)
 
-    __slots__ = ("_values", "_names")
+    def __post_init__(self):
+        # 1. Validation
+        if len(self.values) == 0:
+            raise StateValidationError("StateVector cannot be empty")
+            
+        # Convert list/tuple to numpy if needed
+        if not isinstance(self.values, np.ndarray):
+            try:
+                object.__setattr__(self, "values", np.array(self.values, dtype=np.float64))
+            except (ValueError, TypeError) as e:
+                raise StateValidationError(f"Invalid numeric data: {e}")
+        
+        if np.isnan(self.values).any():
+            raise StateValidationError("StateVector cannot contain NaN values")
 
-    def __init__(
-        self,
-        values: Sequence[float] | np.ndarray,
-        names: Sequence[str] | None = None,
-    ) -> None:
-        # Validate non-empty
-        if len(values) == 0:
-            raise StateValidationError("State vector cannot be empty")
-
-        # Convert to numpy, catching non-numeric
-        try:
-            arr = np.asarray(values, dtype=np.float64)
-        except (ValueError, TypeError) as e:
-            raise StateValidationError(f"State values must be numeric: {e}") from e
-
-        # Reject NaN
-        if np.any(np.isnan(arr)):
-            raise StateValidationError("State values must not contain NaN — they corrupt simulations")
-
-        # Freeze the array
-        arr.flags.writeable = False
-        object.__setattr__(self, "_values", arr)
-
-        # Store names as immutable tuple
-        if names is not None:
-            if len(names) != len(arr):
-                raise StateValidationError(f"Expected {len(arr)} names, got {len(names)}")
-            object.__setattr__(self, "_names", tuple(names))
+        # 2. Immutability
+        self.values.flags.writeable = False
+        
+        # 3. Default names if not provided (stored as tuple)
+        if not self.names:
+            object.__setattr__(self, "names", tuple(f"dim_{i}" for i in range(len(self.values))))
         else:
-            object.__setattr__(self, "_names", None)
-
-    # ── Properties ────────────────────────────────────────────────────────
-
-    @property
-    def values(self) -> np.ndarray:
-        """Read-only numpy array of state values."""
-        return self._values
+            object.__setattr__(self, "names", tuple(self.names))
+            
+        if len(self.values) != len(self.names):
+            raise StateValidationError(f"Values ({len(self.values)}) and names ({len(self.names)}) must have same length")
 
     @property
-    def names(self) -> tuple[str, ...] | None:
-        """Optional dimension labels."""
-        return self._names
+    def dimension_names(self) -> tuple[str, ...]:
+        """Backward compatibility for tests."""
+        return self.names
 
-    # ── Indexing ──────────────────────────────────────────────────────────
+    def __getitem__(self, key: int | str) -> float:
+        """Allow subscripting like a numpy array or by dimension name."""
+        if isinstance(key, str):
+            if key in self.metadata:
+                return self.metadata[key]  # type: ignore
+            idx = list(self.names).index(key)
+            return self.values[idx]
+        return self.values[key]
 
     def __len__(self) -> int:
-        return len(self._values)
+        return len(self.values)
 
-    def __getitem__(self, index: int) -> float:
-        return float(self._values[index])
-
-    def __setitem__(self, index: int, value: float) -> None:
-        raise TypeError("StateVector is immutable")
-
-    # ── Arithmetic ────────────────────────────────────────────────────────
+    def to_dict(self) -> dict[str, Any]:
+        """Merge numerical values and categorical metadata into one dictionary."""
+        d = dict(zip(self.names, self.values.tolist()))
+        d.update(self.metadata)
+        return d
 
     def __sub__(self, other: StateVector) -> StateVector:
-        """Subtraction for error computation: error = real - predicted."""
+        """Element-wise subtraction of the numerical part."""
+        if self.names != other.names:
+            raise ValueError("Cannot subtract vectors with different dimensions")
+        return StateVector(self.values - other.values, self.names, self.metadata)
+
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, StateVector):
-            return NotImplemented
-        return StateVector(self._values - other._values, names=self._names)
-
-    def __add__(self, other: StateVector) -> StateVector:
-        if not isinstance(other, StateVector):
-            return NotImplemented
-        return StateVector(self._values + other._values, names=self._names)
-
-    # ── Comparison ────────────────────────────────────────────────────────
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, StateVector):
-            return NotImplemented
-        return np.array_equal(self._values, other._values)
-
-    def __hash__(self) -> int:
-        return hash(self._values.tobytes())
-
-    # ── Serialization ─────────────────────────────────────────────────────
-
-    def to_dict(self) -> dict[str, float]:
-        """Convert to dict. Requires named dimensions."""
-        if self._names is None:
-            return {str(i): float(v) for i, v in enumerate(self._values)}
-        return {name: float(v) for name, v in zip(self._names, self._values)}
+            return False
+        return (
+            np.array_equal(self.values, other.values) and 
+            self.names == other.names and 
+            self.metadata == other.metadata
+        )
 
     def __repr__(self) -> str:
-        if self._names:
-            pairs = ", ".join(f"{n}={v:.1f}" for n, v in zip(self._names, self._values))
-            return f"StateVector({pairs})"
-        return f"StateVector({list(self._values)})"
+        return f"StateVector(num={len(self.values)}, cat={len(self.metadata)})"

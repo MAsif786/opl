@@ -116,6 +116,9 @@ def main():
         candidates = [Action.no_op(), Action("reorder", 50), Action("reorder(100)", 100)]
         decision = engine.decide(current_state, candidates, horizon=args.horizon)
 
+        # Audit the decision separately from reality
+        db.log_decision(args.entity, current_state, decision.action, decision.score, args.horizon)
+
         print("\n--- OPTIMIZED DECISION ---")
         print(f"Action: {decision.action}")
         print(f"Score:  {decision.score:.2f}")
