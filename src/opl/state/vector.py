@@ -48,15 +48,11 @@ class StateVector:
         try:
             arr = np.asarray(values, dtype=np.float64)
         except (ValueError, TypeError) as e:
-            raise StateValidationError(
-                f"State values must be numeric: {e}"
-            ) from e
+            raise StateValidationError(f"State values must be numeric: {e}") from e
 
         # Reject NaN
         if np.any(np.isnan(arr)):
-            raise StateValidationError(
-                "State values must not contain NaN — they corrupt simulations"
-            )
+            raise StateValidationError("State values must not contain NaN — they corrupt simulations")
 
         # Freeze the array
         arr.flags.writeable = False
@@ -65,9 +61,7 @@ class StateVector:
         # Store names as immutable tuple
         if names is not None:
             if len(names) != len(arr):
-                raise StateValidationError(
-                    f"Expected {len(arr)} names, got {len(names)}"
-                )
+                raise StateValidationError(f"Expected {len(arr)} names, got {len(names)}")
             object.__setattr__(self, "_names", tuple(names))
         else:
             object.__setattr__(self, "_names", None)

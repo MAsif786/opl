@@ -33,7 +33,7 @@ class TestMultiEntity:
         """
         return StateVector(
             [10, 20, 0, 0, 500, 2],
-            names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"]
+            names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"],
         )
 
     @pytest.mark.unit
@@ -56,21 +56,21 @@ class TestMultiEntity:
         assert s_next[4] == 400.0  # 500 - 100
         # Transit is set up
         assert s_next[2] == 100.0  # incoming
-        assert s_next[3] == 2.0    # delay = transport_time
+        assert s_next[3] == 2.0  # delay = transport_time
 
     @pytest.mark.unit
     def test_transfer_fails_if_other_wh_empty(self, multi_state):
         """Cannot transfer more than WH_B has."""
         empty_b_state = StateVector(
             [10, 20, 0, 0, 50, 2],
-            names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"]
+            names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"],
         )
         action = Action("transfer", 100)
         s_next = multi_warehouse_rule(empty_b_state, action)
 
         # Should cap transfer at 50
-        assert s_next[4] == 0.0    # WH_B empty
-        assert s_next[2] == 50.0   # Only 50 incoming
+        assert s_next[4] == 0.0  # WH_B empty
+        assert s_next[2] == 50.0  # Only 50 incoming
 
     @pytest.mark.unit
     def test_world_model_learns_cross_entity_interactions(self):
@@ -88,7 +88,7 @@ class TestMultiEntity:
 
             s_t = StateVector(
                 [10, 20, 0, 0, other_stock, 2],
-                names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"]
+                names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"],
             )
             action = Action("transfer", transfer_qty)
 
@@ -98,7 +98,7 @@ class TestMultiEntity:
 
             s_real = StateVector(
                 [-10, 20, real_sent, 2, other_stock - real_sent, 2],
-                names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"]
+                names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"],
             )
             model.record_observation(s_t, action, s_real)
 
@@ -107,7 +107,7 @@ class TestMultiEntity:
         # Test prediction
         test_state = StateVector(
             [10, 20, 0, 0, 500, 2],
-            names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"]
+            names=["local_stock", "demand", "incoming", "delay", "other_wh_stock", "transport_time"],
         )
         test_action = Action("transfer", 100)
 

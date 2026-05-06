@@ -57,12 +57,7 @@ class TestConfig:
         # StateBuilder is configured with the dimensions from YAML
         builder = StateBuilder(fields=config.dimensions)
 
-        raw_data = {
-            "account_balance": 100000,
-            "daily_burn": 5000,
-            "pending_inbound": 0,
-            "days_to_clear": 0
-        }
+        raw_data = {"account_balance": 100000, "daily_burn": 5000, "pending_inbound": 0, "days_to_clear": 0}
 
         state = builder.build(raw_data)
         assert state.names == ("account_balance", "daily_burn", "pending_inbound", "days_to_clear")

@@ -15,8 +15,13 @@ Design decisions:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from opl.model.action import Action
 from opl.state.vector import StateVector
+
+if TYPE_CHECKING:
+    from opl.model.world_model import RuleFunction
 
 # State dimension indices for logistics
 _STOCK = 0
@@ -30,7 +35,7 @@ DEFAULT_LEAD_TIME = 3
 
 def simple_stock_rule(s_t: StateVector, action: Action, params: dict | None = None) -> StateVector:
     """Base physics rule for warehouse stock evolution.
-    
+
     Params:
         lead_time: The delay in days for a reorder to arrive (default 3).
     """
@@ -63,7 +68,6 @@ def simple_stock_rule(s_t: StateVector, action: Action, params: dict | None = No
     return StateVector(values, names=s_t.names)
 
 
-
 # State dimension indices for multi-warehouse
 _M_STOCK = 0
 _M_DEMAND = 1
@@ -71,6 +75,7 @@ _M_INCOMING = 2
 _M_DELAY = 3
 _M_OTHER_WH_STOCK = 4
 _M_TRANSPORT_TIME = 5
+
 
 def multi_warehouse_rule(s_t: StateVector, action: Action, params: dict | None = None) -> StateVector:
     """Multi-entity physics rule for warehouse transfers.
@@ -81,7 +86,7 @@ def multi_warehouse_rule(s_t: StateVector, action: Action, params: dict | None =
         - local_stock decreases by demand
         - if delay == 0: local_stock increases by incoming, incoming resets
         - delay decrements by 1 (min 0)
-        - if transfer action: 
+        - if transfer action:
             take from other_wh_stock (capped at available)
             set up incoming and delay
 
@@ -143,9 +148,5 @@ def get_rule(name: str) -> RuleFunction:
         ValueError: If rule name is not found.
     """
     if name not in RULE_REGISTRY:
-        raise ValueError(
-            f"Rule '{name}' not found in registry. "
-            f"Available: {list(RULE_REGISTRY.keys())}"
-        )
+        raise ValueError(f"Rule '{name}' not found in registry. Available: {list(RULE_REGISTRY.keys())}")
     return RULE_REGISTRY[name]
-

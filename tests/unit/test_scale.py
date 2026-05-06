@@ -12,13 +12,12 @@ import pytest
 
 from opl.model.action import Action
 from opl.model.rules import simple_stock_rule
+from opl.model.world_model import WorldModel
+from opl.simulator.batched import BatchedSimulator
 from opl.state.vector import StateVector
 
 
-from opl.simulator.batched import BatchedSimulator
-from opl.model.world_model import WorldModel
 class TestVectorizedScale:
-
     @pytest.mark.unit
     def test_simulate_100k_skus(self):
         """Prove 100,000 entities can be rolled forward 14 days very quickly."""
@@ -38,18 +37,18 @@ class TestVectorizedScale:
         # Dummy world model for the MVP batched implementation
         dummy_model = WorldModel(rule=simple_stock_rule)
         simulator = BatchedSimulator(dummy_model)
-        
+
         # Roll forward
         start_time = time.time()
-        
+
         action = Action("reorder", 100)
         states_over_time = simulator.rollout_batch(initial_matrix, action, horizon=horizon)
-            
+
         end_time = time.time()
         duration = end_time - start_time
 
         # 14 days * 100k SKUs = 1.4 million state transitions
-        assert len(states_over_time) == 15 # Initial + 14 days
+        assert len(states_over_time) == 15  # Initial + 14 days
         assert states_over_time[-1].shape == (batch_size, 4)
 
         # Should take significantly less than 1 second on CPU
@@ -63,11 +62,7 @@ class TestVectorizedScale:
         # Row 0: Normal day (stock 100, demand 20, no incoming)
         # Row 1: Arrival day (stock 50, demand 10, incoming 100, delay 0)
         # Row 2: In transit (stock 200, demand 30, incoming 50, delay 2)
-        initial_matrix = np.array([
-            [100.0, 20.0, 0.0, 0.0],
-            [50.0, 10.0, 100.0, 0.0],
-            [200.0, 30.0, 50.0, 2.0]
-        ])
+        initial_matrix = np.array([[100.0, 20.0, 0.0, 0.0], [50.0, 10.0, 100.0, 0.0], [200.0, 30.0, 50.0, 2.0]])
 
         # 1. Test NO_OP Action
         action_noop = Action.no_op()

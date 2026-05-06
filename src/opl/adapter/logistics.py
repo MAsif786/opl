@@ -19,16 +19,16 @@ class LogisticsCsvAdapter:
     @staticmethod
     def load_history(filepath: str) -> list[HistoricalDay]:
         """Load history from a CSV file.
-        
+
         Expected CSV columns:
         date, sku, stock_on_hand, daily_demand, incoming_qty, lead_time_days
-        
+
         Assumes action was 'reorder N' if incoming_qty > 0 on a given day
         AND it was 0 the day before. (Simplified for MVP).
         """
         df = pd.read_csv(filepath)
-        df['date'] = pd.to_datetime(df['date'])
-        df = df.sort_values('date')
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date")
 
         history = []
 
@@ -36,20 +36,20 @@ class LogisticsCsvAdapter:
             # Build state vector
             state = StateVector(
                 [
-                    float(row['stock_on_hand']),
-                    float(row['daily_demand']),
-                    float(row['incoming_qty']),
-                    float(row['lead_time_days'])
+                    float(row["stock_on_hand"]),
+                    float(row["daily_demand"]),
+                    float(row["incoming_qty"]),
+                    float(row["lead_time_days"]),
                 ],
-                names=["stock", "demand", "incoming", "delay"]
+                names=["stock", "demand", "incoming", "delay"],
             )
 
             # Infer action taken on this day.
             # In real life, this comes from a "decisions" or "PO" table.
             # Here, if incoming_qty > 0 and was 0 yesterday, a reorder happened.
             action = Action.no_op()
-            if idx > 0 and row['incoming_qty'] > 0 and df.iloc[idx-1]['incoming_qty'] == 0:
-                action = Action("reorder", float(row['incoming_qty']))
+            if idx > 0 and row["incoming_qty"] > 0 and df.iloc[idx - 1]["incoming_qty"] == 0:
+                action = Action("reorder", float(row["incoming_qty"]))
 
             history.append(HistoricalDay(state=state, action=action))
 

@@ -20,8 +20,8 @@ from opl.simulator.rollout import Trajectory
 
 class CostFunction(Protocol):
     """Protocol for domain-specific cost functions."""
-    def compute(self, trajectory: Trajectory) -> float:
-        ...
+
+    def compute(self, trajectory: Trajectory) -> float: ...
 
 
 class LogisticsCostFunction:
@@ -78,14 +78,18 @@ class LogisticsCostFunction:
                     total_cost += stock * self.holding_cost
 
         # 2. Evaluate Initial Action Costs (Supplier Pricing)
-        if trajectory.initial_action and trajectory.initial_action.name == "reorder" and trajectory.initial_action.value > 0:
+        if (
+            trajectory.initial_action
+            and trajectory.initial_action.name == "reorder"
+            and trajectory.initial_action.value > 0
+        ):
             order_amount = trajectory.initial_action.value
             action_cost = self.fixed_order_fee
-            
+
             # Non-linear bulk discount step-function
             if order_amount >= self.bulk_discount_threshold:
                 action_cost *= 0.5  # 50% discount on the fixed fee for bulk orders
-                
+
             total_cost += action_cost
 
         return total_cost

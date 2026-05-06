@@ -32,6 +32,7 @@ class Decision:
         expected_cost: The computed cost of the simulated future.
         trajectory: The predicted states for the next N days.
     """
+
     action: Action
     expected_cost: float
     trajectory: Trajectory

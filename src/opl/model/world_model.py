@@ -167,16 +167,10 @@ class WorldModel:
         """
         n = len(self._error_history)
         if n < MIN_OBSERVATIONS:
-            raise ValueError(
-                f"Need at least {MIN_OBSERVATIONS} observations to train "
-                f"correction, got {n}"
-            )
+            raise ValueError(f"Need at least {MIN_OBSERVATIONS} observations to train correction, got {n}")
 
         # Build training data
-        X = np.array([
-            self._build_features(rec.s_t, rec.action)
-            for rec in self._error_history
-        ])
+        X = np.array([self._build_features(rec.s_t, rec.action) for rec in self._error_history])
         # Target: the error the rule made (we learn to predict it)
         Y = np.array([rec.error.values for rec in self._error_history])
 
@@ -198,7 +192,7 @@ class WorldModel:
         """
         if not self._correction_trained or self._correction_model is None:
             raise ValueError("Cannot save an untrained model.")
-        
+
         joblib.dump(self._correction_model, path)
 
     def load(self, path: str) -> None:

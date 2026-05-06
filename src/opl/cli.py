@@ -66,7 +66,7 @@ def main():
         train_history = history[:-1]
         world_model = ColdStart.replay(train_history, rule=physics_rule)
         print(f"   ML correction trained on {len(world_model.error_history)} historical errors.")
-        
+
         if args.model:
             print(f"💾 Saving trained model to {args.model}...")
             world_model.save(args.model)
@@ -111,7 +111,7 @@ def main():
     demand_series = decision.trajectory.get_series("demand")
 
     for i in range(min(5, args.horizon)):
-        print(f"  Day {i+1}: Stock = {stock_series[i]:.1f} | Expected Demand = {demand_series[i]:.1f}")
+        print(f"  Day {i + 1}: Stock = {stock_series[i]:.1f} | Expected Demand = {demand_series[i]:.1f}")
 
     if decision.action.name == "reorder" and decision.action.value > 0:
         print("  ... (Arrival expected on Day 4)")
@@ -125,10 +125,10 @@ def main():
         # We don't know the 'reality' of tomorrow yet, so we log the state and action taken.
         # In a real system, a separate process would fill in the 'next_state' tomorrow.
         db.log_observation(
-            entity_id=config.domain, 
-            state=current_state, 
-            action=decision.action, 
-            next_state=decision.trajectory.states[0] # The engine's best guess for tomorrow
+            entity_id=config.domain,
+            state=current_state,
+            action=decision.action,
+            next_state=decision.trajectory.states[0],  # The engine's best guess for tomorrow
         )
         db.close()
         print("   Observation logged successfully.")

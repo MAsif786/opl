@@ -51,9 +51,7 @@ class StateBuilder:
         """
         missing = [f for f in self._fields if f not in raw]
         if missing:
-            raise StateValidationError(
-                f"Raw data missing required fields: {missing}"
-            )
+            raise StateValidationError(f"Raw data missing required fields: {missing}")
 
         values = [raw[f] for f in self._fields]
         return StateVector(values, names=self._fields)

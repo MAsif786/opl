@@ -8,7 +8,6 @@ so it is "smart" on Day 1 of deployment.
 Tests written BEFORE implementation.
 """
 
-
 import numpy as np
 import pytest
 
@@ -22,8 +21,8 @@ from opl.state.vector import StateVector
 @pytest.fixture
 def synthetic_history():
     """Generates a synthetic historical dataset of 90 days.
-    
-    The rule assumes stock decreases only by demand. 
+
+    The rule assumes stock decreases only by demand.
     However, the actual history has a 5% daily spoilage rate.
     The ML correction should learn to predict this systematic bias.
     """
@@ -37,10 +36,7 @@ def synthetic_history():
     for day in range(90):
         demand = 20.0
 
-        state = StateVector(
-            [stock, demand, incoming, delay],
-            names=["stock", "demand", "incoming", "delay"]
-        )
+        state = StateVector([stock, demand, incoming, delay], names=["stock", "demand", "incoming", "delay"])
 
         if day % 5 == 0:
             action = Action("reorder", 100)
@@ -65,7 +61,6 @@ def synthetic_history():
 
 
 class TestColdStart:
-
     @pytest.mark.integration
     def test_replay_trains_world_model(self, synthetic_history):
         """Replaying history must result in a trained WorldModel."""
@@ -82,10 +77,7 @@ class TestColdStart:
     def test_replay_rejects_insufficient_history(self):
         """If we don't have enough history to train ML, it should fail early."""
         short_history = [
-            HistoricalDay(
-                StateVector([100, 20, 0, 0], names=["stock", "demand", "incoming", "delay"]),
-                Action.no_op()
-            )
+            HistoricalDay(StateVector([100, 20, 0, 0], names=["stock", "demand", "incoming", "delay"]), Action.no_op())
         ] * 5  # Only 5 days (4 transitions) - MIN_OBSERVATIONS is 10
 
         with pytest.raises(ValueError, match="observations"):
@@ -112,7 +104,7 @@ class TestColdStart:
         for t in range(len(test_hist) - 1):
             s_t = test_hist[t].state
             action = test_hist[t].action
-            s_real = test_hist[t+1].state
+            s_real = test_hist[t + 1].state
 
             # Trained prediction
             s_pred_trained = trained_model.predict(s_t, action)

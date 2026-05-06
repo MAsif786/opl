@@ -52,7 +52,7 @@ class TestSimulator:
         # Day 1: action applied (incoming set to 50, delay=3)
         # stock = 100 - 20 = 80
         assert trajectory.states[0][2] == 50.0  # incoming
-        assert trajectory.states[0][3] == 3.0   # delay
+        assert trajectory.states[0][3] == 3.0  # delay
         assert trajectory.states[0][0] == 80.0  # stock
 
         # Day 2: no_op applied (incoming stays 50, delay ticks down to 2)

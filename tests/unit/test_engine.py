@@ -7,7 +7,6 @@ and how the orchestrator picks the best action from candidate options.
 Tests written BEFORE implementation.
 """
 
-
 import pytest
 
 from opl.engine.decision import Decision, DecisionEngine
@@ -55,7 +54,6 @@ class TestCostEvaluator:
     @pytest.mark.unit
     def test_reorder_action_incurs_cost(self):
         """Taking an action (reordering) should have a baseline transaction cost."""
-        evaluator = CostEvaluator(cost_function=LogisticsCostFunction())
 
         # We need action info in the evaluator now? Actually, the cost function
         # usually evaluates the state trajectory. Let's see if we need action cost.
@@ -111,7 +109,7 @@ class TestDecisionEngine:
         decision = base_engine.decide(start_state, candidates, horizon=7)
 
         assert decision.action == Action.no_op()
-        assert decision.expected_cost < float('inf')
+        assert decision.expected_cost < float("inf")
 
     @pytest.mark.unit
     def test_decision_includes_trajectory_for_explainability(self, base_engine):

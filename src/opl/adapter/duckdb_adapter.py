@@ -9,13 +9,14 @@ This adapter allows the engine to:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import duckdb
 import numpy as np
-from typing import Sequence
 
+from opl.engine.cold_start import HistoricalDay
 from opl.model.action import Action
 from opl.state.vector import StateVector
-from opl.engine.cold_start import HistoricalDay
 
 
 class DuckDBAdapter:
@@ -45,13 +46,7 @@ class DuckDBAdapter:
             )
         """)
 
-    def log_observation(
-        self, 
-        entity_id: str, 
-        state: StateVector, 
-        action: Action, 
-        next_state: StateVector
-    ) -> None:
+    def log_observation(self, entity_id: str, state: StateVector, action: Action, next_state: StateVector) -> None:
         """Save a real-world transition to the database.
 
         Args:
@@ -61,9 +56,13 @@ class DuckDBAdapter:
             next_state: Resulting state observed in reality.
         """
         import json
-        
+
         self.conn.execute(
-            "INSERT INTO observations (entity_id, dimension_names, state_values, action_name, action_value, next_state_values) VALUES (?, ?, ?, ?, ?, ?)",
+            """
+            INSERT INTO observations
+            (entity_id, dimension_names, state_values, action_name, action_value, next_state_values)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
             [
                 entity_id,
                 json.dumps(state.names),
@@ -71,7 +70,7 @@ class DuckDBAdapter:
                 action.name,
                 action.value,
                 next_state.values.tolist(),
-            ]
+            ],
         )
 
     def load_history(self, entity_id: str) -> Sequence[HistoricalDay]:
@@ -81,10 +80,15 @@ class DuckDBAdapter:
             A sequence of HistoricalDay objects for the ColdStart engine.
         """
         import json
-        
+
         res = self.conn.execute(
-            "SELECT dimension_names, state_values, action_name, action_value FROM observations WHERE entity_id = ? ORDER BY timestamp ASC",
-            [entity_id]
+            """
+            SELECT dimension_names, state_values, action_name, action_value
+            FROM observations
+            WHERE entity_id = ?
+            ORDER BY timestamp ASC
+            """,
+            [entity_id],
         ).fetchall()
 
         history = []
@@ -93,7 +97,7 @@ class DuckDBAdapter:
             state = StateVector(np.array(row[1]), names=names)
             action = Action(row[2], row[3])
             history.append(HistoricalDay(state=state, action=action))
-        
+
         return history
 
     def close(self) -> None:

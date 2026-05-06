@@ -21,9 +21,7 @@ class BatchedSimulator:
         # bypass the ML layer for batched simulation and use the pure physics rule.
         self.world_model = world_model
 
-    def rollout_batch(
-        self, start_matrix: np.ndarray, action: Action, horizon: int
-    ) -> list[np.ndarray]:
+    def rollout_batch(self, start_matrix: np.ndarray, action: Action, horizon: int) -> list[np.ndarray]:
         """Roll a batch of entities forward in time.
 
         Args:

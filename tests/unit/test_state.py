@@ -111,9 +111,7 @@ class TestStateBuilder:
     @pytest.mark.unit
     def test_builds_state_from_raw_dict(self):
         """Given a complete raw data dict, produces a valid StateVector."""
-        builder = StateBuilder(
-            fields=["stock", "demand", "incoming", "delay"]
-        )
+        builder = StateBuilder(fields=["stock", "demand", "incoming", "delay"])
         raw = {"stock": 100, "demand": 20, "incoming": 50, "delay": 2}
         state = builder.build(raw)
         assert isinstance(state, StateVector)
@@ -122,9 +120,7 @@ class TestStateBuilder:
     @pytest.mark.unit
     def test_rejects_missing_required_fields(self):
         """Must fail explicitly if required fields are absent."""
-        builder = StateBuilder(
-            fields=["stock", "demand", "incoming", "delay"]
-        )
+        builder = StateBuilder(fields=["stock", "demand", "incoming", "delay"])
         raw = {"stock": 100}  # missing demand, incoming, delay
         with pytest.raises(StateValidationError, match="missing"):
             builder.build(raw)
@@ -135,7 +131,7 @@ class TestStateBuilder:
         builder = StateBuilder(fields=["demand", "stock"])
         raw = {"stock": 100, "demand": 20}
         state = builder.build(raw)
-        assert state[0] == 20.0   # demand first
+        assert state[0] == 20.0  # demand first
         assert state[1] == 100.0  # stock second
 
     @pytest.mark.unit

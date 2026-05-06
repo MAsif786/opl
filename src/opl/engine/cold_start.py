@@ -31,6 +31,7 @@ class HistoricalDay:
         state: The actual state vector recorded on that day.
         action: The actual action taken on that day.
     """
+
     state: StateVector
     action: Action
 

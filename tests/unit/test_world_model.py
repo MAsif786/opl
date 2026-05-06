@@ -97,7 +97,7 @@ class TestSimpleStockRule:
         s_next = simple_stock_rule(s_t, action)
         # After reorder: incoming = 40, delay = default lead time (3)
         assert s_next[2] == pytest.approx(40.0)  # incoming
-        assert s_next[3] == pytest.approx(3.0)   # delay (default lead time)
+        assert s_next[3] == pytest.approx(3.0)  # delay (default lead time)
 
     @pytest.mark.unit
     def test_output_is_state_vector(self):
