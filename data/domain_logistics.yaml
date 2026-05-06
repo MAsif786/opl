@@ -1,0 +1,26 @@
+domain: logistics_replenishment
+
+dimensions:
+  - stock
+  - demand
+  - incoming
+  - delay
+  - other_wh_stock
+  - transport_time
+
+physics_rule: logistics_basic
+
+rule_params:
+  lead_time: 4.0
+
+
+actions:
+  - no_op
+  - reorder
+  - transfer
+
+cost_params:
+  stockout_penalty: 1000.0
+  holding_cost: 1.0
+  safety_stock_threshold: 50.0
+
